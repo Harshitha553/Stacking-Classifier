@@ -186,49 +186,95 @@ rf_depth = st.sidebar.slider(
 )
 
 # -----------------------------------
-# BASE MODELS
+# BASE LEARNERS
 # -----------------------------------
 
-estimators = [
+lr = LogisticRegression(
+    max_iter=1000
+)
 
-    (
-        "lr",
-        LogisticRegression(
-            max_iter=1000
-        )
-    ),
+dt = DecisionTreeClassifier(
+    max_depth=tree_depth,
+    random_state=42
+)
 
-    (
-        "dt",
-        DecisionTreeClassifier(
-            max_depth=tree_depth,
-            random_state=42
-        )
-    ),
+knn = KNeighborsClassifier(
+    n_neighbors=knn_neighbors
+)
 
-    (
-        "knn",
-        KNeighborsClassifier(
-            n_neighbors=knn_neighbors
-        )
-    )
+# Train Individual Models
 
-]
+lr.fit(
+    x_train,
+    y_train
+)
+
+dt.fit(
+    x_train,
+    y_train
+)
+
+knn.fit(
+    x_train,
+    y_train
+)
+
+# Individual Predictions
+
+lr_pred = lr.predict(
+    x_test
+)
+
+dt_pred = dt.predict(
+    x_test
+)
+
+knn_pred = knn.predict(
+    x_test
+)
+
+# Individual Accuracies
+
+lr_acc = accuracy_score(
+    y_test,
+    lr_pred
+)
+
+dt_acc = accuracy_score(
+    y_test,
+    dt_pred
+)
+
+knn_acc = accuracy_score(
+    y_test,
+    knn_pred
+)
 
 # -----------------------------------
-# META MODEL
+# META LEARNER
 # -----------------------------------
 
 final_estimator = RandomForestClassifier(
 
     n_estimators=rf_estimators,
+
     max_depth=rf_depth,
+
     random_state=42
 )
+# -----------------------------------
+# STACKING CLASSIFIER
+# -----------------------------------
 
-# -----------------------------------
-# STACKING MODEL
-# -----------------------------------
+estimators = [
+
+    ("lr", lr),
+
+    ("dt", dt),
+
+    ("knn", knn)
+
+]
 
 model = StackingClassifier(
 
@@ -251,136 +297,114 @@ pickle.dump(
         "wb"
     )
 )
-
 # -----------------------------------
-# PREDICTIONS
+# STACKING PREDICTION
 # -----------------------------------
 
-y_pred = model.predict(
+stack_pred = model.predict(
     x_test
 )
 
 # -----------------------------------
-# METRICS
+# STACKING METRICS
 # -----------------------------------
 
-accuracy = accuracy_score(
+stack_acc = accuracy_score(
     y_test,
-    y_pred
+    stack_pred
 )
 
-precision = precision_score(
+stack_precision = precision_score(
     y_test,
-    y_pred
+    stack_pred
 )
 
-recall = recall_score(
+stack_recall = recall_score(
     y_test,
-    y_pred
+    stack_pred
 )
 
-f1 = f1_score(
+stack_f1 = f1_score(
     y_test,
-    y_pred
+    stack_pred
 )
 
 st.subheader(
-    "Model Performance"
+    "Stacking Classifier Performance"
 )
 
 c1,c2,c3,c4 = st.columns(4)
 
 c1.metric(
     "Accuracy",
-    round(accuracy,3)
+    round(stack_acc,3)
 )
 
 c2.metric(
     "Precision",
-    round(precision,3)
+    round(stack_precision,3)
 )
 
 c3.metric(
     "Recall",
-    round(recall,3)
+    round(stack_recall,3)
 )
 
 c4.metric(
     "F1 Score",
-    round(f1,3)
+    round(stack_f1,3)
 )
-
 # -----------------------------------
-# USER INPUT
+# PERFORMANCE COMPARISON
 # -----------------------------------
 
-st.subheader(
-    "Predict Disease"
-)
+comparison = pd.DataFrame({
 
-mean_radius = st.slider(
-    "Mean Radius",
-    5.0,
-    30.0,
-    15.0
-)
+    "Model":[
 
-mean_texture = st.slider(
-    "Mean Texture",
-    5.0,
-    40.0,
-    20.0
-)
+        "Logistic Regression",
 
-mean_perimeter = st.slider(
-    "Mean Perimeter",
-    40.0,
-    200.0,
-    100.0
-)
+        "Decision Tree",
 
-mean_area = st.slider(
-    "Mean Area",
-    100.0,
-    2500.0,
-    1000.0
-)
+        "KNN",
 
-input_data = pd.DataFrame({
+        "Stacking Classifier"
+    ],
 
-    "mean radius":[mean_radius],
-    "mean texture":[mean_texture],
-    "mean perimeter":[mean_perimeter],
-    "mean area":[mean_area]
+    "Accuracy":[
 
+        round(lr_acc,3),
+
+        round(dt_acc,3),
+
+        round(knn_acc,3),
+
+        round(stack_acc,3)
+    ]
 })
 
-for col in x.columns:
-
-    if col not in input_data.columns:
-
-        input_data[col] = df[col].mean()
-
-input_scaled = scaler.transform(
-    input_data
+st.subheader(
+    "Performance Comparison"
 )
 
-if st.button(
-    "Predict"
-):
+st.dataframe(
+    comparison
+)
 
-    prediction = model.predict(
-        input_scaled
-    )
+st.subheader(
+    "Stacking Architecture"
+)
 
-    if prediction[0] == 1:
+st.info(
+"""
+Base Learners:
+1. Logistic Regression
+2. Decision Tree
+3. KNN
 
-        st.success(
-            "Disease Detected"
-        )
+Meta Learner:
+4. Random Forest
 
-    else:
-
-        st.success(
-            "No Disease Detected"
-        )
+The predictions of the base learners are used as input to the Random Forest meta learner to generate the final prediction.
+"""
+)
